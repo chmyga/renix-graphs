@@ -2,18 +2,16 @@ package org.dchmyga.data;
 
 import java.io.EOFException;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 
-import org.dchmyga.data.format.Field;
-import org.dchmyga.data.format.FileFormat;
-import org.dchmyga.data.format.PossibleFields;
 import org.dchmyga.data.parser.DataParser;
 
 public class DataReader {
 
 	public DataHolder readData(String fileName) throws IOException {
-		FileFormat ff = createDefaultFileFormat();
-		DataHolder dataHolder = new DataHolder(ff);
+		// FileFormat ff = createDefaultFileFormat();
+		DataHolder dataHolder = new DataHolder(Arrays.asList(TransformerField.values()));
 		DataParser r = new DataParser(fileName);
 		r.startReading();
 		try {
@@ -28,14 +26,6 @@ public class DataReader {
 			r.close();
 		}
 		return dataHolder;
-	}
-
-	private FileFormat createDefaultFileFormat() {
-		FileFormat ff = new FileFormat();
-		for (Field f : PossibleFields.values()) {
-			ff.addField(f.getPosition(), f.getName());
-		}
-		return ff;
 	}
 
 }

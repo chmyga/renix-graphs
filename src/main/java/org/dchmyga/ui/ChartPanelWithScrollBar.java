@@ -1,5 +1,6 @@
 package org.dchmyga.ui;
 
+import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -15,7 +16,6 @@ import javax.swing.JScrollBar;
 
 import org.dchmyga.data.DataHolder;
 import org.dchmyga.data.format.Field;
-import org.dchmyga.data.format.PossibleFields;
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartPanel;
 import org.jfree.chart.JFreeChart;
@@ -30,9 +30,10 @@ class ChartPanelWithScrollBar extends JPanel {
 
 	private ChartPanel chartPanel;
 	private DataHolder dataHolder;
-	private List<Field> selectedFields = null;
+	private List<GraphFields> selectedFields = null;
 	private int start = 0;
-	private int end = 100;
+	private int frame = 100;
+	private int end = start + frame;
 	private JScrollBar scrollBar;
 	private int step = 10;
 	private Map<Field, XYSeries> seriesMap = new HashMap<>();
@@ -59,7 +60,9 @@ class ChartPanelWithScrollBar extends JPanel {
 	}
 
 	private void initPanels() {
-		Map<Field, List<Integer>> data = null;
+		setStart(0);
+		setEnd(frame);
+		Map<GraphFields, List<Number>> data = null;
 		if (dataHolder != null) {
 			data = dataHolder.getDataForFields(getSelectedFields(), getStart(), getEnd());
 		}
@@ -78,6 +81,9 @@ class ChartPanelWithScrollBar extends JPanel {
 		plot.setDomainGridlinePaint(Color.BLACK);
 
 		XYLineAndShapeRenderer renderer = new XYLineAndShapeRenderer();
+		renderer.setBaseShapesVisible(false);
+		renderer.setBaseShapesFilled(false);
+		renderer.setBaseStroke(new BasicStroke(2));
 		plot.setRenderer(renderer);
 		this.add(chartPanel, new GridBagConstraints(1, 1, 1, 1, 1.0, 1.0, GridBagConstraints.NORTH,
 				GridBagConstraints.BOTH, new Insets(2, 2, 2, 2), 0, 0));
@@ -116,11 +122,11 @@ class ChartPanelWithScrollBar extends JPanel {
 		return start;
 	}
 
-	private XYDataset createDataset(Map<Field, List<Integer>> data) {
+	private XYDataset createDataset(Map<GraphFields, List<Number>> data) {
 		final XYSeriesCollection dataset = new XYSeriesCollection();
 		if (data != null) {
-			for (Map.Entry<Field, List<Integer>> entry : data.entrySet()) {
-				XYSeries series = new XYSeries(entry.getKey().getName());
+			for (Map.Entry<GraphFields, List<Number>> entry : data.entrySet()) {
+				XYSeries series = new XYSeries(entry.getKey().getTitle());
 				for (int i = 0; i < entry.getValue().size(); i++) {
 					series.add(i, entry.getValue().get(i));
 				}
@@ -136,12 +142,12 @@ class ChartPanelWithScrollBar extends JPanel {
 		if (curStart == prevStart) {
 			return;
 		}
-		Map<Field, List<Integer>> data = dataHolder.getDataForFields(getSelectedFields(), curStart, curEnd);
-		for (Map.Entry<Field, List<Integer>> entry : data.entrySet()) {
+		Map<GraphFields, List<Number>> data = dataHolder.getDataForFields(getSelectedFields(), curStart, curEnd);
+		for (Map.Entry<GraphFields, List<Number>> entry : data.entrySet()) {
 			Field f = entry.getKey();
 			XYSeries series = seriesMap.get(f);
 			series.clear();
-			List<Integer> dataForField = entry.getValue();
+			List<Number> dataForField = entry.getValue();
 			for (int i = 0, j = curStart; i < dataForField.size(); i++, j++) {
 				series.add(j, dataForField.get(i), false);
 			}
@@ -149,9 +155,9 @@ class ChartPanelWithScrollBar extends JPanel {
 		chartPanel.getChart().getXYPlot().getDomainAxis().setRange(curStart, curEnd);
 	}
 
-	private List<Field> getSelectedFields() {
+	private List<GraphFields> getSelectedFields() {
 		if (selectedFields == null) {
-			selectedFields = PossibleFields.getDefaultGraphFields();
+			selectedFields = GraphFields.valuesAsList();
 		}
 		return selectedFields;
 	}

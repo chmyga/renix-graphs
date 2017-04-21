@@ -17,6 +17,13 @@ public class SomeTest {
 		String binB = String.format("%8s", Integer.toBinaryString(b)).replace(' ', '0');
 		System.out.println(binA + binB);
 		System.out.println(Integer.parseInt(binA + binB, 2));
+
+		int resShift = (a << 8) | b;
+		System.out.println(Integer.toBinaryString(resShift));
+		System.out.println(resShift);
+
+		int a1 = 0b00001010;
+		System.out.println("a & b = " + ((a1 >> 2) & 1));
 	}
 
 }

@@ -7,26 +7,25 @@ import java.util.List;
 import java.util.Map;
 
 import org.dchmyga.data.format.Field;
-import org.dchmyga.data.format.FileFormat;
 
 public class DataHolder {
 
-	private FileFormat format;
-	private Map<Field, List<Integer>> valuesByFields = new HashMap<>();
+	private Map<String, List<Number>> valuesByFields = new HashMap<>();
+	private final List<TransformerField> fields;
 	private int valuesCount = 0;
 
-	public DataHolder(FileFormat format) {
-		this.format = format;
+	public DataHolder(List<TransformerField> fields) {
+		this.fields = fields;
 	}
 
 	public void addData(List<Integer> values) {
-		for (Field f : format.getFields()) {
-			List<Integer> valuesForField = valuesByFields.get(f);
+		for (TransformerField f : fields) {
+			List<Number> valuesForField = valuesByFields.get(f.getName());
 			if (valuesForField == null) {
 				valuesForField = new ArrayList<>();
-				valuesByFields.put(f, valuesForField);
+				valuesByFields.put(f.getName(), valuesForField);
 			}
-			valuesForField.add(values.get(f.getPosition() - 1));
+			valuesForField.add(f.calculate(values));
 		}
 		valuesCount++;
 	}
@@ -35,37 +34,28 @@ public class DataHolder {
 		return valuesCount;
 	}
 
-	public List<Integer> getDataForFieldName(String fieldName) {
-		return valuesByFields.get(format.getFieldByName(fieldName));
+	public List<Number> getDataForField(Field f) {
+		return valuesByFields.get(f.getName());
 	}
 
-	public List<Integer> getDataForField(Field f) {
-		return valuesByFields.get(f);
-	}
-
-	public Map<Field, List<Integer>> getDataForFieldsByNames(Collection<String> names) {
-		Map<Field, List<Integer>> data = new HashMap<>();
+	public Map<String, List<Number>> getDataForFieldsByNames(Collection<String> names) {
+		Map<String, List<Number>> data = new HashMap<>();
 		for (String name : names) {
-			Field f = format.getFieldByName(name);
-			data.put(f, valuesByFields.get(f));
+			data.put(name, valuesByFields.get(name));
 		}
 		return data;
 	}
 
-	public Map<Field, List<Integer>> getDataForFields(Collection<Field> fields, int start, int end) {
-		Map<Field, List<Integer>> data = new HashMap<>();
-		for (Field field : fields) {
-			List<Integer> values = new ArrayList<>();
-			for (int i = start; i < end && i < valuesByFields.get(field).size(); i++) {
-				values.add(valuesByFields.get(field).get(i));
+	public <T extends Field> Map<T, List<Number>> getDataForFields(Collection<T> fields, int start, int end) {
+		Map<T, List<Number>> data = new HashMap<>();
+		for (T field : fields) {
+			List<Number> values = new ArrayList<>();
+			for (int i = start; i < end && i < valuesByFields.get(field.getName()).size(); i++) {
+				values.add(valuesByFields.get(field.getName()).get(i));
 			}
 			data.put(field, values);
 		}
 		return data;
-	}
-
-	public Collection<Field> getPossibleFields() {
-		return valuesByFields.keySet();
 	}
 
 }
