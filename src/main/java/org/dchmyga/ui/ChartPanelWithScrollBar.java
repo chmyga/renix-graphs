@@ -1,16 +1,19 @@
 package org.dchmyga.ui;
 
 import java.awt.BasicStroke;
-import java.awt.Color;
+import java.awt.Dimension;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
+import java.awt.event.ActionEvent;
 import java.awt.event.AdjustmentEvent;
 import java.awt.event.AdjustmentListener;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import javax.swing.AbstractAction;
+import javax.swing.JButton;
 import javax.swing.JPanel;
 import javax.swing.JScrollBar;
 
@@ -37,6 +40,8 @@ class ChartPanelWithScrollBar extends JPanel {
 	private JScrollBar scrollBar;
 	private int step = 10;
 	private Map<Field, XYSeries> seriesMap = new HashMap<>();
+	private FieldsSelectionPanel selectionPanel = new FieldsSelectionPanel();
+	private List<GraphFields> defaultFields;
 
 	public ChartPanelWithScrollBar() {
 		super(new GridBagLayout());
@@ -48,12 +53,7 @@ class ChartPanelWithScrollBar extends JPanel {
 	}
 
 	public void reinitPanels() {
-		if (chartPanel != null) {
-			this.remove(chartPanel);
-		}
-		if (scrollBar != null) {
-			this.remove(scrollBar);
-		}
+		this.removeAll();
 		initPanels();
 		this.repaint();
 		this.revalidate();
@@ -62,6 +62,7 @@ class ChartPanelWithScrollBar extends JPanel {
 	private void initPanels() {
 		setStart(0);
 		setEnd(frame);
+		selectionPanel.init(getDefaultFieldsList());
 		Map<GraphFields, List<Number>> data = null;
 		if (dataHolder != null) {
 			data = dataHolder.getDataForFields(getSelectedFields(), getStart(), getEnd());
@@ -76,20 +77,40 @@ class ChartPanelWithScrollBar extends JPanel {
 		final XYPlot plot = xylineChart.getXYPlot();
 		plot.setDomainPannable(true);
 		plot.getDomainAxis().setRange(getStart(), getEnd());
-		plot.setBackgroundPaint(Color.WHITE);
-		plot.setRangeGridlinePaint(Color.BLACK);
-		plot.setDomainGridlinePaint(Color.BLACK);
+		// plot.setBackgroundPaint(Color.WHITE);
+		// plot.setRangeGridlinePaint(Color.BLACK);
+		// plot.setDomainGridlinePaint(Color.BLACK);
 
 		XYLineAndShapeRenderer renderer = new XYLineAndShapeRenderer();
 		renderer.setBaseShapesVisible(false);
 		renderer.setBaseShapesFilled(false);
-		renderer.setBaseStroke(new BasicStroke(2));
+		renderer.setBaseStroke(new BasicStroke(5));
 		plot.setRenderer(renderer);
+		plot.getRangeAxis().setAutoRange(true);
+
+		JButton updateButton = new JButton();
+		JPanel selectWithButtonPanel = new JPanel(new GridBagLayout());
 		this.add(chartPanel, new GridBagConstraints(1, 1, 1, 1, 1.0, 1.0, GridBagConstraints.NORTH,
 				GridBagConstraints.BOTH, new Insets(2, 2, 2, 2), 0, 0));
+		selectWithButtonPanel.add(selectionPanel, new GridBagConstraints(1, 1, 1, 1, 1.0, 1.0, GridBagConstraints.NORTH,
+				GridBagConstraints.VERTICAL, new Insets(2, 2, 2, 2), 0, 0));
+		selectWithButtonPanel.add(updateButton, new GridBagConstraints(1, 2, 1, 1, 1.0, 0.1, GridBagConstraints.NORTH,
+				GridBagConstraints.NONE, new Insets(2, 2, 2, 2), 0, 0));
+		this.add(selectWithButtonPanel, new GridBagConstraints(2, 1, 1, 1, 0.1, 1.0, GridBagConstraints.NORTH,
+				GridBagConstraints.VERTICAL, new Insets(2, 2, 2, 2), 0, 0));
 		scrollBar = initScrollBar();
+		updateButton.setPreferredSize(new Dimension(350, 25));
+		updateButton.setAction(new UpdateAction());
+		updateButton.setText("Update chart");
 		this.add(scrollBar, new GridBagConstraints(1, 2, 1, 1, 1.0, 0.01, GridBagConstraints.SOUTH,
 				GridBagConstraints.BOTH, new Insets(2, 2, 2, 2), 0, 0));
+	}
+
+	private List<GraphFields> getDefaultFieldsList() {
+		if (defaultFields == null) {
+			defaultFields = GraphFields.valuesAsList();
+		}
+		return defaultFields;
 	}
 
 	private JScrollBar initScrollBar() {
@@ -137,29 +158,29 @@ class ChartPanelWithScrollBar extends JPanel {
 		return dataset;
 	}
 
-	private void changeData(int prevStart, int prevEnd, int curStart, int curEnd) {
+	private void changeData(int curStart, int curEnd) {
 		System.out.println("changing data");
-		if (curStart == prevStart) {
-			return;
-		}
-		Map<GraphFields, List<Number>> data = dataHolder.getDataForFields(getSelectedFields(), curStart, curEnd);
-		for (Map.Entry<GraphFields, List<Number>> entry : data.entrySet()) {
+		Map<GraphFields, List<Number>> data = dataHolder.getDataForFields(getDefaultFieldsList(), curStart, curEnd);
+		List<GraphFields> selectedFields = getSelectedFields();
+		for (Map.Entry<Field, XYSeries> entry : seriesMap.entrySet()) {
 			Field f = entry.getKey();
-			XYSeries series = seriesMap.get(f);
+			XYSeries series = entry.getValue();
 			series.clear();
-			List<Number> dataForField = entry.getValue();
+			List<Number> dataForField = data.get(f);
+			if (dataForField == null) {
+				continue;
+			}
 			for (int i = 0, j = curStart; i < dataForField.size(); i++, j++) {
-				series.add(j, dataForField.get(i), false);
+				Number n = dataForField.get(i);
+				series.add(j, n, false);
 			}
 		}
 		chartPanel.getChart().getXYPlot().getDomainAxis().setRange(curStart, curEnd);
+		chartPanel.getChart().fireChartChanged();
 	}
 
 	private List<GraphFields> getSelectedFields() {
-		if (selectedFields == null) {
-			selectedFields = GraphFields.valuesAsList();
-		}
-		return selectedFields;
+		return selectionPanel.getSelectedFields();
 	}
 
 	private int getVisibleRange() {
@@ -174,17 +195,38 @@ class ChartPanelWithScrollBar extends JPanel {
 		this.end = end;
 	}
 
+	private void fieldsSetChanged() {
+		XYPlot xyPlot = chartPanel.getChart().getXYPlot();
+		XYDataset set = xyPlot.getDataset();
+		List<GraphFields> selectedFields = getSelectedFields();
+		for (Map.Entry<Field, XYSeries> entry : seriesMap.entrySet()) {
+			Field f = entry.getKey();
+			XYSeries series = entry.getValue();
+			boolean visible = selectedFields.contains(f);
+			int seriesNumber = set.indexOf(series.getKey());
+			xyPlot.getRenderer().setSeriesVisible(seriesNumber, selectedFields.contains(f), visible);
+		}
+	}
+
 	private class ScrollBarListener implements AdjustmentListener {
 
 		@Override
 		public void adjustmentValueChanged(AdjustmentEvent e) {
-			int prevStart = getStart();
-			int prevEnd = getEnd();
 			int curStart = e.getAdjustable().getValue();
-			int curEnd = e.getAdjustable().getValue() + 100;
+			int curEnd = e.getAdjustable().getValue() + frame;
 			setStart(curStart);
 			setEnd(curEnd);
-			changeData(prevStart, prevEnd, curStart, curEnd);
+			changeData(curStart, curEnd);
+		}
+
+	}
+
+	private class UpdateAction extends AbstractAction {
+
+		@Override
+		public void actionPerformed(ActionEvent e) {
+			// changeData(getStart(), getEnd());
+			fieldsSetChanged();
 		}
 
 	}
